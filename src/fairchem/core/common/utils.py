@@ -35,7 +35,7 @@ from matplotlib.backends.backend_agg import FigureCanvasAgg as FigureCanvas
 from matplotlib.figure import Figure
 from torch_geometric.data import Data
 from torch_geometric.utils import remove_self_loops
-from torch_scatter import scatter, segment_coo, segment_csr
+from torch_scatter import scatter, scatter_add
 
 import fairchem.core
 from fairchem.core.modules.loss import AtomwiseL2Loss, L2MAELoss
@@ -726,6 +726,18 @@ def radius_graph_pbc(
 
     return edge_index, unit_cell, num_neighbors_image
 
+def segment_coo_patch(src, index, dim_size=None):
+    if dim_size is None:
+        dim_size = index.max().item() + 1
+    out = torch.zeros(dim_size, dtype=src.dtype, device=src.device)
+    out = scatter_add(src, index, out=out)
+    return out
+
+def segment_csr_patch(src, indptr):
+    out = torch.zeros(indptr.size(0) - 1, dtype=src.dtype, device=src.device)
+    for i in range(len(indptr) - 1):
+        out[i] = src[indptr[i]:indptr[i + 1]].sum()
+    return out
 
 def get_max_neighbors_mask(
     natoms,
@@ -756,14 +768,14 @@ def get_max_neighbors_mask(
     # Get number of neighbors
     # segment_coo assumes sorted index
     ones = index.new_ones(1).expand_as(index)
-    num_neighbors = segment_coo(ones, index, dim_size=num_atoms)
+    num_neighbors = segment_coo_patch(ones, index, dim_size=num_atoms)
     max_num_neighbors = num_neighbors.max()
     num_neighbors_thresholded = num_neighbors.clamp(max=max_num_neighbors_threshold)
 
     # Get number of (thresholded) neighbors per image
     image_indptr = torch.zeros(natoms.shape[0] + 1, device=device, dtype=torch.long)
     image_indptr[1:] = torch.cumsum(natoms, dim=0)
-    num_neighbors_image = segment_csr(num_neighbors_thresholded, image_indptr)
+    num_neighbors_image = segment_csr_patch(num_neighbors_thresholded, image_indptr)
 
     # If max_num_neighbors is below the threshold, return early
     if (
