@@ -17,6 +17,9 @@ from fairchem.core.common.utils import (
     compute_neighbors,
     get_pbc_distances,
     radius_graph_pbc,
+    radius_graph_pbc_func,
+    segment_coo_patch,
+    segment_csr_patch,
 )
 
 
@@ -108,6 +111,105 @@ class BaseModel(nn.Module):
                 cell_offsets, device=data.pos.device
             )
             neighbors = compute_neighbors(data, edge_index)
+
+        return (
+            edge_index,
+            edge_dist,
+            distance_vec,
+            cell_offsets,
+            cell_offset_distances,
+            neighbors,
+        )
+
+    def generate_graph_func(
+        self,
+        atom_pos,
+        natoms,
+        cell,
+        batch_ids,
+        data_pbc=None,
+        cutoff=None,
+        max_neighbors=None,
+        use_pbc=None,
+        otf_graph=None,
+        enforce_max_neighbors_strictly=None,
+    ):
+        cutoff = cutoff or self.cutoff
+        max_neighbors = max_neighbors or self.max_neighbors
+        use_pbc = use_pbc or self.use_pbc
+        otf_graph = otf_graph or self.otf_graph
+
+        if enforce_max_neighbors_strictly is not None:
+            pass
+        elif hasattr(self, "enforce_max_neighbors_strictly"):
+            # Not all models will have this attribute
+            enforce_max_neighbors_strictly = self.enforce_max_neighbors_strictly
+        else:
+            # Default to old behavior
+            enforce_max_neighbors_strictly = True
+
+        if not otf_graph:
+            raise NotImplementedError(
+                "otf_graph == False not implemented in the patched version of generate_graph_func"
+            )
+
+        if use_pbc:
+            if otf_graph:
+                edge_index, cell_offsets, neighbors = radius_graph_pbc_func(
+                    atom_pos,
+                    natoms,
+                    cell,
+                    cutoff,
+                    max_neighbors,
+                    data_pbc=data_pbc,
+                    enforce_max_neighbors_strictly=enforce_max_neighbors_strictly,
+                )
+
+            out = get_pbc_distances(
+                atom_pos,
+                edge_index,
+                cell,
+                cell_offsets,
+                neighbors,
+                return_offsets=True,
+                return_distance_vec=True,
+            )
+
+            edge_index = out["edge_index"]
+            edge_dist = out["distances"]
+            cell_offset_distances = out["offsets"]
+            distance_vec = out["distance_vec"]
+        else:
+            if otf_graph:
+                edge_index = radius_graph(
+                    atom_pos,
+                    r=cutoff,
+                    batch=batch_ids,
+                    max_num_neighbors=max_neighbors,
+                )
+
+            j, i = edge_index
+            distance_vec = atom_pos[j] - atom_pos[i]
+
+            edge_dist = distance_vec.norm(dim=-1)
+            cell_offsets = torch.zeros(edge_index.shape[1], 3, device=atom_pos.device)
+            cell_offset_distances = torch.zeros_like(
+                cell_offsets, device=atom_pos.device
+            )
+
+            # Get number of neighbors
+            # segment_coo assumes sorted index
+            ones = edge_index[1].new_ones(1).expand_as(edge_index[1])
+            num_neighbors = segment_coo_patch(
+                ones, edge_index[1], dim_size=natoms.sum()
+            )
+
+            # Get number of neighbors per image
+            image_indptr = torch.zeros(
+                natoms.shape[0] + 1, device=atom_pos.device, dtype=torch.long
+            )
+            image_indptr[1:] = torch.cumsum(natoms, dim=0)
+            neighbors = segment_csr_patch(num_neighbors, image_indptr)
 
         return (
             edge_index,
