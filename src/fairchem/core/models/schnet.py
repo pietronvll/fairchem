@@ -125,20 +125,54 @@ class SchNetWrap(SchNet, BaseModel):
         outputs = {"energy": energy}
 
         if self.regress_forces:
-            forces = (
-                -1
-                * (
-                    torch.autograd.grad(
-                        energy,
-                        data.pos,
-                        grad_outputs=torch.ones_like(energy),
-                        create_graph=True,
-                    )[0]
-                )
+            forces = -1 * (
+                torch.autograd.grad(
+                    energy,
+                    data.pos,
+                    grad_outputs=torch.ones_like(energy),
+                    create_graph=True,
+                )[0]
             )
             outputs["forces"] = forces
 
         return outputs
+
+    def descriptors(
+        self,
+        atom_pos,
+        natoms,
+        cell,
+        batch_ids,
+        atomic_numbers,
+        data_pbc,
+        interaction_block,
+    ):
+        """
+        Forward pass for the SchNet model to get the embedded representations of the input data
+
+        """
+        # Get the atomic numbers of the input data
+        z = atomic_numbers.long()
+        # Get the edge index, edge weight and other attributes of the input data
+        (
+            edge_index,
+            edge_weight,
+            _,
+            _,
+            _,
+            _,
+        ) = self.generate_graph_func(atom_pos, natoms, cell, batch_ids, data_pbc)
+
+        assert z.dim() == 1 and z.dtype == torch.long
+
+        edge_attr = self.distance_expansion(edge_weight)
+
+        # Get the embedded representations of the input data
+        h = self.embedding(z)
+        for interaction in self.interactions[:interaction_block]:
+            h = h + interaction(h, edge_index, edge_weight, edge_attr)
+
+        return h
 
     @property
     def num_params(self) -> int:

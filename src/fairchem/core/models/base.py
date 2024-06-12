@@ -127,7 +127,7 @@ class BaseModel(nn.Module):
         natoms,
         cell,
         batch_ids,
-        data_pbc=None,
+        data_pbc,
         cutoff=None,
         max_neighbors=None,
         use_pbc=None,
