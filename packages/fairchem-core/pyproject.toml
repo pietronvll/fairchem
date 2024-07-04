@@ -18,7 +18,6 @@ dependencies = [
     "tensorboard",
     "wandb",
     "numba",
-    "e3nn>=0.5",
     "urllib3",
     "orjson",
     "tqdm",
