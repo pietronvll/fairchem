@@ -263,7 +263,7 @@ class AtomsToGraphs:
 
         for atoms in tqdm(
             atoms_iter,
-            desc="converting ASE atoms collection to graphs",
+            desc="ASE -> fairchem",
             total=len(atoms_collection),
             unit=" systems",
             disable=disable_tqdm,
