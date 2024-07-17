@@ -143,9 +143,9 @@ class SchNetWrap(SchNet, BaseModel):
         natoms,
         cell,
         batch_ids,
-        atomic_numbers,
         data_pbc,
         interaction_block,
+        atomic_numbers,
     ):
         """
         Forward pass for the SchNet model to get the embedded representations of the input data
