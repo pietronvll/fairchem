@@ -26,14 +26,7 @@ except ImportError:
     AseAtomsAdaptor = None
 
 
-try:
-    shell = get_ipython().__class__.__name__
-    if shell == "ZMQInteractiveShell":
-        from tqdm.notebook import tqdm
-    else:
-        from tqdm import tqdm
-except NameError:
-    from tqdm import tqdm
+from tqdm import tqdm
 
 
 class AtomsToGraphs:
@@ -231,7 +224,8 @@ class AtomsToGraphs:
         atoms_collection,
         processed_file_path: str | None = None,
         collate_and_save=False,
-        disable_tqdm=False,
+        process_rank: int = 0,
+        split_name: str | None = None,
     ):
         """Convert all atoms objects in a list or in an ase.db to graphs.
 
@@ -263,10 +257,14 @@ class AtomsToGraphs:
 
         for atoms in tqdm(
             atoms_iter,
-            desc="ASE -> fairchem",
+            desc=(
+                "ASE -> fairchem"
+                if split_name is None
+                else f"ASE -> fairchem ({split_name})"
+            ),
             total=len(atoms_collection),
             unit=" systems",
-            disable=disable_tqdm,
+            disable=process_rank != 0,
         ):
             # check if atoms is an ASE Atoms object this for the ase.db case
             data = self.convert(
