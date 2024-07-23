@@ -154,9 +154,9 @@ class BaseModel(nn.Module):
 
         if not otf_graph:
             need_otf_graph = (
-                edge_index is not None or (
+                edge_index is None or (
                     (not use_pbc) and (
-                        cell_offsets is not None or neighbors is not None
+                        cell_offsets is None or neighbors is None
                     )
                 )
             )
