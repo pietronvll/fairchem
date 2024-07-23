@@ -146,6 +146,9 @@ class SchNetWrap(SchNet, BaseModel):
         data_pbc,
         atomic_numbers,
         interaction_block,
+        edge_index=None,
+        cell_offsets=None,
+        neighbors=None
     ):
         """
         Forward pass for the SchNet model to get the embedded representations of the input data
@@ -161,7 +164,10 @@ class SchNetWrap(SchNet, BaseModel):
             _,
             _,
             _,
-        ) = self.generate_graph_func(atom_pos, natoms, cell, batch_ids, data_pbc)
+        ) = self.generate_graph_func(
+            atom_pos, natoms, cell, batch_ids, data_pbc,
+            edge_index=edge_index, cell_offsets=cell_offsets, neighbors=neighbors
+        )
 
         assert z.dim() == 1 and z.dtype == torch.long
 

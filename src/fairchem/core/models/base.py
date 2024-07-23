@@ -7,6 +7,7 @@ LICENSE file in the root directory of this source tree.
 
 from __future__ import annotations
 
+from typing import Optional
 import logging
 
 import torch
@@ -133,6 +134,9 @@ class BaseModel(nn.Module):
         use_pbc=None,
         otf_graph=None,
         enforce_max_neighbors_strictly=None,
+        edge_index: Optional[torch.Tensor] = None,
+        cell_offsets: Optional[torch.Tensor] = None,
+        neighbors: Optional[torch.Tensor] = None
     ):
         cutoff = cutoff or self.cutoff
         max_neighbors = max_neighbors or self.max_neighbors
@@ -149,9 +153,18 @@ class BaseModel(nn.Module):
             enforce_max_neighbors_strictly = True
 
         if not otf_graph:
-            raise NotImplementedError(
-                "otf_graph == False not implemented in the patched version of generate_graph_func"
+            need_otf_graph = (
+                edge_index is not None or (
+                    (not use_pbc) and (
+                        cell_offsets is not None or neighbors is not None
+                    )
+                )
             )
+            if need_otf_graph:
+                logging.warning(
+                    "Turning otf_graph=True as required attributes not present in data object"
+                )
+                otf_graph = True
 
         if use_pbc:
             if otf_graph:
