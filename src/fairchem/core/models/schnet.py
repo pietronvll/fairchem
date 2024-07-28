@@ -158,18 +158,17 @@ class SchNetWrap(SchNet, BaseModel):
         # Get the atomic numbers of the input data
         z = atomic_numbers.long()
         # Get the edge index, edge weight and other attributes of the input data
-        if edge_index is None or edge_weight is None:
-            (
-                edge_index,
-                edge_weight,
-                _,
-                _,
-                _,
-                _,
-            ) = self.generate_graph_func(
-                atom_pos, natoms, cell, batch_ids, data_pbc,
-                edge_index=edge_index, cell_offsets=cell_offsets, neighbors=neighbors
-            )
+        (
+            edge_index,
+            edge_weight,
+            _,
+            _,
+            _,
+            _,
+        ) = self.generate_graph_func(
+            atom_pos, natoms, cell, batch_ids, data_pbc,
+            edge_index=edge_index, cell_offsets=cell_offsets, neighbors=neighbors
+        )
 
         assert z.dim() == 1 and z.dtype == torch.long
 
